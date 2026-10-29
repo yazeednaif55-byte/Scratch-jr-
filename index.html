@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تطبيق البرمجة للصغار - Junior Code Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            font-family: 'Fredoka', 'Segoe UI', cursive, sans-serif;
+        }
+
+        /* Fun Bounce Animations */
+        .bounce-hover:hover {
+            transform: scale(1.08) rotate(-2deg);
+        }
+        .bounce-active:active {
+            transform: scale(0.95);
+        }
+        
+        /* Custom Scrollbar for visual trays */
+        ::-webkit-scrollbar {
+            height: 12px;
+            width: 12px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #FBBF24;
+            border-radius: 10px;
+            border: 3px solid rgba(255,255,255,0.8);
+        }
+
+        /* Puzzle Block Shapes */
+        .code-block {
+            position: relative;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .code-block:active {
+            box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+            transform: translateY(4px);
+        }
+
+        /* Block Snap Shapes */
+        .block-connector-right::after {
+            content: '';
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 24px;
+            background: inherit;
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+            z-index: 2;
+        }
+        .block-connector-left::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 24px;
+            background: #e5e7eb;
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+            z-index: 1;
+        }
+
+        /* Canvas Stage Backgrounds */
+        .bg-space { background: linear-gradient(to bottom, #0f172a, #312e81, #581c87); }
+        .bg-underwater { background: linear-gradient(to bottom, #0284c7, #0369a1, #0c4a6e); }
+        .bg-forest { background: linear-gradient(to bottom, #38bdf8, #4ade80, #15803d); }
+        .bg-castle { background: linear-gradient(to bottom, #818cf8, #c084fc, #475569); }
+        .bg-beach { background: linear-gradient(to bottom, #38bdf8, #fef08a, #fde047); }
+        .bg-park { background: linear-gradient(to bottom, #60a5fa, #bbf7d0, #22c55e); }
+
+        /* Animation Keyframes */
+        @keyframes dance {
+            0%, 100% { transform: rotate(-10deg) scale(1); }
+            50% { transform: rotate(10deg) scale(1.1); }
+        }
+        .anim-dance { animation: dance 0.5s infinite; }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(250, 204, 21, 0.6); }
+            50% { box-shadow: 0 0 30px rgba(250, 204, 21, 1); }
+        }
+        .glow-active { animation: pulse-glow 1.5s infinite; }
+    </style>
+</head>
+<body class="bg-amber-100 h-screen w-screen overflow-hidden flex flex-col select-none">
+
+    <!-- TOP TOOLBAR / HEADER -->
+    <header class="h-16 bg-yellow-400 border-b-4 border-yellow-500 px-4 flex items-center justify-between shadow-md z-20">
+        <!-- Left Controls: Play / Stop / Physics / Clear -->
+        <div class="flex items-center gap-3">
+            <!-- Play Green Flag -->
+            <button id="btn-play" onclick="runProgram()" class="bounce-hover bounce-active bg-green-500 hover:bg-green-600 text-white w-12 h-12 rounded-2xl border-b-4 border-green-700 flex items-center justify-center text-2xl shadow-lg cursor-pointer">
+                <i class="fa-solid fa-flag"></i>
+            </button>
+            <!-- Stop Red Octagon -->
+            <button id="btn-stop" onclick="stopProgram()" class="bounce-hover bounce-active bg-red-500 hover:bg-red-600 text-white w-12 h-12 rounded-2xl border-b-4 border-red-700 flex items-center justify-center text-2xl shadow-lg cursor-pointer">
+                <i class="fa-solid fa-stop"></i>
+            </button>
+            <!-- Physics Toggle -->
+            <button id="btn-physics" onclick="togglePhysics()" class="bounce-hover bounce-active bg-purple-500 hover:bg-purple-600 text-white px-3 h-12 rounded-2xl border-b-4 border-purple-700 flex items-center gap-2 text-xl shadow-lg cursor-pointer">
+                <i class="fa-solid fa-atom text-yellow-300"></i>
+                <span id="physics-status" class="text-xs font-bold bg-purple-800 px-2 py-0.5 rounded-full">إيقاف</span>
+            </button>
+            <!-- Preset Projects -->
+            <button onclick="openPresetsModal()" class="bounce-hover bounce-active bg-blue-500 hover:bg-blue-600 text-white px-3 h-12 rounded-2xl border-b-4 border-blue-700 flex items-center gap-2 text-lg shadow-lg cursor-pointer">
+                <i class="fa-solid fa-wand-magic-sparkles text-yellow-300"></i>
+            </button>
+        </div>
+
+        <!-- Center: Background & Character Adders -->
+        <div class="flex items-center gap-4">
+            <!-- Change Background -->
+            <button onclick="openBackgroundModal()" class="bounce-hover bounce-active bg-sky-400 hover:bg-sky-500 text-white px-4 h-12 rounded-2xl border-b-4 border-sky-600 flex items-center gap-2 text-xl font-bold shadow-lg cursor-pointer">
+                <i class="fa-solid fa-image text-2xl"></i>
+            </button>
+            <!-- Add Character -->
+            <button onclick="openCharacterModal()" class="bounce-hover bounce-active bg-pink-500 hover:bg-pink-600 text-white px-4 h-12 rounded-2xl border-b-4 border-pink-700 flex items-center gap-2 text-xl font-bold shadow-lg cursor-pointer">
+                <i class="fa-solid fa-plus text-2xl"></i>
+                <i class="fa-solid fa-cat text-2xl"></i>
+            </button>
+        </div>
+
+        <!-- Right Controls: Story Scenes & Sound Mute -->
+        <div class="flex items-center gap-3">
+            <!-- Scene Switchers -->
+            <div id="scenes-container" class="flex gap-2 bg-yellow-300 p-1 rounded-xl border-2 border-yellow-500">
+                <button onclick="switchScene(1)" id="scene-btn-1" class="w-10 h-10 rounded-lg bg-white font-bold text-yellow-700 border-2 border-yellow-500 shadow">1</button>
+                <button onclick="switchScene(2)" id="scene-btn-2" class="w-10 h-10 rounded-lg bg-yellow-200 font-bold text-yellow-700 hover:bg-white">2</button>
+                <button onclick="switchScene(3)" id="scene-btn-3" class="w-10 h-10 rounded-lg bg-yellow-200 font-bold text-yellow-700 hover:bg-white">3</button>
+            </div>
+            <!-- Audio Toggle -->
+            <button id="btn-sound" onclick="toggleAudio()" class="bounce-hover bounce-active bg-orange-400 text-white w-12 h-12 rounded-2xl border-b-4 border-orange-600 flex items-center justify-center text-xl shadow-lg">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN MIDDLE AREA: STAGE & CHARACTERS LIST -->
+    <div class="flex-1 flex overflow-hidden relative">
+        
+        <!-- Left Active Characters Sidebar -->
+        <div class="w-24 bg-amber-200/80 border-r-4 border-amber-300 p-2 flex flex-col items-center gap-3 overflow-y-auto z-10">
+            <div class="text-xs font-bold text-amber-800 text-center mb-1">الشخصيات</div>
+            <div id="active-characters-list" class="w-full flex flex-col items-center gap-3">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <!-- STAGE / CANVAS INTERACTIVE AREA -->
+        <div id="stage" class="flex-1 relative bg-park overflow-hidden transition-all duration-500 shadow-inner">
+            <!-- Grid Lines overlay for Scratch Jr feel -->
+            <div class="absolute inset-0 bg-[linear-gradient(to_right,#ffffff15_1px,transparent_1px),linear-gradient(to_bottom,#ffffff15_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+
+            <!-- Stage Title / Scene Indicator -->
+            <div class="absolute top-3 right-4 bg-white/70 backdrop-blur-md px-4 py-1 rounded-full font-bold text-amber-900 border border-white text-sm shadow-sm pointer-events-none">
+                المشهد <span id="current-scene-num">1</span>
+            </div>
+
+            <!-- Canvas Objects Container -->
+            <div id="stage-objects" class="absolute inset-0">
+                <!-- Interactive SVG/Emoji characters placed here dynamically -->
+            </div>
+
+            <!-- Particle Canvas Overlay -->
+            <canvas id="particle-canvas" class="absolute inset-0 pointer-events-none z-30"></canvas>
+        </div>
+    </div>
+
+    <!-- BOTTOM WORKSPACE: BLOCKS CATEGORIES & PROGRAMMING TIMELINE -->
+    <div class="h-64 bg-amber-50 border-t-4 border-amber-300 flex flex-col z-20 shadow-2xl">
+        
+        <!-- CATEGORY TABS -->
+        <div class="h-14 bg-amber-200 px-4 flex items-center gap-2 border-b-2 border-amber-300 overflow-x-auto">
+            <!-- Start / Triggers (Yellow) -->
+            <button onclick="selectCategory('trigger')" id="cat-trigger" class="cat-btn bg-yellow-400 text-yellow-900 px-4 py-2 rounded-t-2xl font-bold flex items-center gap-2 border-t-4 border-x-4 border-yellow-500 bounce-hover shadow">
+                <i class="fa-solid fa-bolt text-xl"></i>
+            </button>
+            <!-- Motion (Blue) -->
+            <button onclick="selectCategory('motion')" id="cat-motion" class="cat-btn bg-blue-400 text-white px-4 py-2 rounded-t-2xl font-bold flex items-center gap-2 border-t-4 border-x-4 border-blue-500 bounce-hover opacity-70">
+                <i class="fa-solid fa-arrows-up-down-left-right text-xl"></i>
+            </button>
+            <!-- Looks (Purple) -->
+            <button onclick="selectCategory('looks')" id="cat-looks" class="cat-btn bg-purple-400 text-white px-4 py-2 rounded-t-2xl font-bold flex items-center gap-2 border-t-4 border-x-4 border-purple-500 bounce-hover opacity-70">
+                <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+            </button>
+            <!-- Sound (Green) -->
+            <button onclick="selectCategory('sound')" id="cat-sound" class="cat-btn bg-green-400 text-white px-4 py-2 rounded-t-2xl font-bold flex items-center gap-2 border-t-4 border-x-4 border-green-500 bounce-hover opacity-70">
+                <i class="fa-solid fa-music text-xl"></i>
+            </button>
+            <!-- Control / Loops (Red/Orange) -->
+            <button onclick="selectCategory('control')" id="cat-control" class="cat-btn bg-orange-400 text-white px-4 py-2 rounded-t-2xl font-bold flex items-center gap-2 border-t-4 border-x-4 border-orange-500 bounce-hover opacity-70">
+                <i class="fa-solid fa-repeat text-xl"></i>
+            </button>
+        </div>
+
+        <!-- BLOCKS PALETTE TRAY -->
+        <div id="blocks-palette" class="h-20 bg-amber-100 p-2 flex items-center gap-3 overflow-x-auto border-b border-amber-200">
+            <!-- Blocks rendered dynamically according to category -->
+        </div>
+
+        <!-- PROGRAMMING TIMELINE / DROP ZONE -->
+        <div class="flex-1 bg-amber-50 p-2 flex items-center gap-3 overflow-x-auto relative">
+            <!-- Start Indicator Tag -->
+            <div class="flex items-center gap-2 bg-amber-200/70 border-2 border-dashed border-amber-400 rounded-xl px-3 py-2 text-amber-800 font-bold text-xs select-none">
+                <i class="fa-solid fa-puzzle-piece text-amber-500 text-lg"></i>
+                مجرى البرمجة
+            </div>
+
+            <!-- Sequence Horizontal Container -->
+            <div id="program-timeline" class="flex items-center gap-1 min-w-[300px] h-full p-1 rounded-xl bg-amber-200/30 border-2 border-amber-200">
+                <div class="text-amber-400 font-bold text-sm px-4 pointer-events-none">اسحب المكعبات إلى هنا!</div>
+            </div>
+
+            <!-- Trash Dropzone -->
+            <div id="trash-zone" class="mr-auto w-14 h-14 bg-red-100 border-2 border-dashed border-red-400 rounded-2xl flex items-center justify-center text-red-500 text-2xl transition-colors">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: BACKGROUND SELECTOR -->
+    <div id="modal-backgrounds" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-2xl w-full border-8 border-yellow-400 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b-2 pb-2">
+                <h2 class="text-2xl font-bold text-amber-900 flex items-center gap-2">
+                    <i class="fa-solid fa-image text-yellow-500"></i> اختر الخلفية
+                </h2>
+                <button onclick="closeModal('modal-backgrounds')" class="text-gray-400 hover:text-red-500 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="grid grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto p-2">
+                <button onclick="changeBackground('bg-park')" class="h-28 rounded-2xl bg-park border-4 border-transparent hover:border-yellow-400 text-white font-bold text-xl shadow-lg flex items-end p-2 bounce-hover">حديقة 🌳</button>
+                <button onclick="changeBackground('bg-space')" class="h-28 rounded-2xl bg-space border-4 border-transparent hover:border-yellow-400 text-white font-bold text-xl shadow-lg flex items-end p-2 bounce-hover">فضاء 🚀</button>
+                <button onclick="changeBackground('bg-underwater')" class="h-28 rounded-2xl bg-underwater border-4 border-transparent hover:border-yellow-400 text-white font-bold text-xl shadow-lg flex items-end p-2 bounce-hover">تحت الماء 🐙</button>
+                <button onclick="changeBackground('bg-forest')" class="h-28 rounded-2xl bg-forest border-4 border-transparent hover:border-yellow-400 text-white font-bold text-xl shadow-lg flex items-end p-2 bounce-hover">غابة 🌲</button>
+                <button onclick="changeBackground('bg-castle')" class="h-28 rounded-2xl bg-castle border-4 border-transparent hover:border-yellow-400 text-white font-bold text-xl shadow-lg flex items-end p-2 bounce-hover">قلعة 🏰</button>
+                <button onclick="changeBackground('bg-beach')" class="h-28 rounded-2xl bg-beach border-4 border-transparent hover:border-yellow-400 text-amber-900 font-bold text-xl shadow-lg flex items-end p-2 bounce-hover">شاطئ 🏖️</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: CHARACTER SELECTOR & CUSTOM CREATOR BUTTON -->
+    <div id="modal-characters" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-3xl w-full border-8 border-pink-400 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b-2 pb-2">
+                <h2 class="text-2xl font-bold text-pink-900 flex items-center gap-2">
+                    <i class="fa-solid fa-icons text-pink-500"></i> اختر شخصية جديدة
+                </h2>
+                <button onclick="closeModal('modal-characters')" class="text-gray-400 hover:text-red-500 text-3xl font-bold">&times;</button>
+            </div>
+            
+            <!-- Custom Paint Button -->
+            <button onclick="openPaintEditor()" class="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white font-bold p-4 rounded-2xl text-xl flex items-center justify-center gap-3 shadow-lg bounce-hover border-b-4 border-purple-700">
+                <i class="fa-solid fa-paintbrush text-2xl text-yellow-300"></i>
+                ارسم شخصيتك الخاصة الآن! 🎨
+            </button>
+
+            <!-- Library Grid -->
+            <div class="grid grid-cols-4 sm:grid-cols-6 gap-3 max-h-[50vh] overflow-y-auto p-2">
+                <!-- Avatars (SVG/Emoji representations) -->
+                <button onclick="addCharacterFromLib('🐱', 'قطة')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🐱</button>
+                <button onclick="addCharacterFromLib('🐶', 'كلب')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🐶</button>
+                <button onclick="addCharacterFromLib('🐸', 'ضفدع')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🐸</button>
+                <button onclick="addCharacterFromLib('🤖', 'روبوت')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🤖</button>
+                <button onclick="addCharacterFromLib('🚀', 'صاروخ')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🚀</button>
+                <button onclick="addCharacterFromLib('🦄', 'وحيد القرن')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🦄</button>
+                <button onclick="addCharacterFromLib('👾', 'كائن فضائي')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">👾</button>
+                <button onclick="addCharacterFromLib('恐', 'ديناصور')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🦖</button>
+                <button onclick="addCharacterFromLib('🏎️', 'سيارة')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🏎️</button>
+                <button onclick="addCharacterFromLib('🦁', 'أسد')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🦁</button>
+                <button onclick="addCharacterFromLib('🐻', 'دب')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🐻</button>
+                <button onclick="addCharacterFromLib('Birds', 'طائر')" class="h-24 bg-pink-50 rounded-2xl border-2 border-pink-200 hover:border-pink-500 flex flex-col items-center justify-center text-4xl shadow bounce-hover">🦜</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: PAINT EDITOR / DRAWING CANVAS -->
+    <div id="modal-paint" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-4 max-w-4xl w-full border-8 border-purple-500 shadow-2xl flex flex-col gap-3 h-[90vh]">
+            <!-- Header -->
+            <div class="flex justify-between items-center border-b-2 pb-2">
+                <h2 class="text-2xl font-bold text-purple-900 flex items-center gap-2">
+                    <i class="fa-solid fa-palette text-purple-500"></i> استوديو الرسم والتصميم
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="saveCustomCharacter()" class="bg-green-500 hover:bg-green-600 text-white font-bold px-6 py-2 rounded-xl border-b-4 border-green-700 shadow-md flex items-center gap-2 bounce-hover">
+                        <i class="fa-solid fa-check text-xl"></i> حفظ والشروع!
+                    </button>
+                    <button onclick="closeModal('modal-paint')" class="text-gray-400 hover:text-red-500 text-3xl font-bold">&times;</button>
+                </div>
+            </div>
+
+            <!-- Workspace: Tools + Canvas -->
+            <div class="flex-1 flex gap-3 overflow-hidden">
+                <!-- Left Tools Palette -->
+                <div class="w-16 bg-purple-50 rounded-2xl p-2 flex flex-col items-center gap-3 border-2 border-purple-200">
+                    <button onclick="setPaintTool('pen')" id="tool-pen" class="paint-tool-btn p-3 rounded-xl bg-purple-500 text-white text-xl shadow">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button onclick="setPaintTool('eraser')" id="tool-eraser" class="paint-tool-btn p-3 rounded-xl bg-purple-200 text-purple-800 text-xl hover:bg-purple-300">
+                        <i class="fa-solid fa-eraser"></i>
+                    </button>
+                    <button onclick="setPaintTool('star')" id="tool-star" class="paint-tool-btn p-3 rounded-xl bg-purple-200 text-purple-800 text-xl hover:bg-purple-300">
+                        <i class="fa-solid fa-star"></i>
+                    </button>
+                    <button onclick="setPaintTool('heart')" id="tool-heart" class="paint-tool-btn p-3 rounded-xl bg-purple-200 text-purple-800 text-xl hover:bg-purple-300">
+                        <i class="fa-solid fa-heart"></i>
+                    </button>
+                    <button onclick="clearPaintCanvas()" class="p-3 rounded-xl bg-red-100 text-red-600 text-xl hover:bg-red-200 mt-auto">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+
+                <!-- Center Drawing Canvas Area -->
+                <div class="flex-1 bg-gray-100 rounded-2xl overflow-hidden relative flex items-center justify-center border-2 border-gray-300">
+                    <canvas id="paint-canvas" class="bg-white rounded-xl shadow-inner cursor-crosshair"></canvas>
+                </div>
+
+                <!-- Right Color & Size Controls -->
+                <div class="w-20 bg-purple-50 rounded-2xl p-2 flex flex-col items-center gap-2 border-2 border-purple-200 overflow-y-auto">
+                    <div class="text-xs font-bold text-purple-800">الألوان</div>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="setPaintColor('#ef4444')" class="w-10 h-10 rounded-full bg-red-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#f97316')" class="w-10 h-10 rounded-full bg-orange-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#eab308')" class="w-10 h-10 rounded-full bg-yellow-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#22c55e')" class="w-10 h-10 rounded-full bg-green-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#06b6d4')" class="w-10 h-10 rounded-full bg-cyan-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#3b82f6')" class="w-10 h-10 rounded-full bg-blue-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#a855f7')" class="w-10 h-10 rounded-full bg-purple-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#ec4899')" class="w-10 h-10 rounded-full bg-pink-500 border-2 border-white shadow"></button>
+                        <button onclick="setPaintColor('#000000')" class="w-10 h-10 rounded-full bg-black border-2 border-white shadow"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: PRESET PROJECTS -->
+    <div id="modal-presets" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 max-w-xl w-full border-8 border-blue-400 shadow-2xl flex flex-col gap-4">
+            <div class="flex justify-between items-center border-b-2 pb-2">
+                <h2 class="text-2xl font-bold text-blue-900 flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-blue-500"></i> المشاريع الجاهزة
+                </h2>
+                <button onclick="closeModal('modal-presets')" class="text-gray-400 hover:text-red-500 text-3xl font-bold">&times;</button>
+            </div>
+            <div class="flex flex-col gap-3">
+                <button onclick="loadPreset('dance')" class="p-4 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 border-2 border-purple-300 rounded-2xl flex items-center justify-between shadow bounce-hover">
+                    <div class="flex items-center gap-3">
+                        <span class="text-4xl">💃</span>
+                        <div class="text-right">
+                            <div class="font-bold text-lg text-purple-900">حفلة الرقص</div>
+                            <div class="text-xs text-purple-700">شخصيات ترقص مع أضواء وموسيقى!</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-play text-purple-600 text-2xl"></i>
+                </button>
+
+                <button onclick="loadPreset('space')" class="p-4 bg-gradient-to-r from-blue-100 to-indigo-100 hover:from-blue-200 hover:to-indigo-200 border-2 border-blue-300 rounded-2xl flex items-center justify-between shadow bounce-hover">
+                    <div class="flex items-center gap-3">
+                        <span class="text-4xl">🚀</span>
+                        <div class="text-right">
+                            <div class="font-bold text-lg text-indigo-900">رحلة الفضاء</div>
+                            <div class="text-xs text-indigo-700">صاروخ ينطلق ويقفز نحو النجوم</div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-play text-indigo-600 text-2xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT APP LOGIC -->
+    <script>
+        /* ==========================================================================
+           1. STATE MANAGEMENT & AUDIO SYNTHESIZER
+           ========================================================================== */
+        
+        let isAudioMuted = false;
+        let physicsEnabled = false;
+        let isRunning = false;
+        let currentScene = 1;
+        let activeCategoryId = 'trigger';
+        
+        // Scene data storage
+        const scenesData = {
+            1: { background: 'bg-park', characters: [] },
+            2: { background: 'bg-space', characters: [] },
+            3: { background: 'bg-underwater', characters: [] }
+        };
+
+        let activeCharacterId = null;
+
+        // Web Audio Synthesizer (Zero External Audio Dependencies)
+        const AudioFX = {
+            ctx: null,
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+            playPop() {
+                if (isAudioMuted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            },
+            playBoing() {
+                if (isAudioMuted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(400, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            },
+            playAnimalSound(type) {
+                if (isAudioMuted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                if (type === 'cat') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(300, this.ctx.currentTime + 0.3);
+                } else if (type === 'dog') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(100, this.ctx.currentTime + 0.1);
+                } else { // Frog / cheer
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(500, this.ctx.currentTime + 0.15);
+                }
+                
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+        };
+
+        /* ==========================================================================
+           2. BLOCKS LIBRARY DEFINITIONS
+           ========================================================================== */
+
+        const blockDefinitions = {
+            trigger: [
+                { type: 'start_flag', bg: 'bg-yellow-400', icon: 'fa-flag', label: 'بدء' },
+                { type: 'start_tap', bg: 'bg-yellow-500', icon: 'fa-hand-pointer', label: 'لمس' }
+            ],
+            motion: [
+                { type: 'move_right', bg: 'bg-blue-500', icon: 'fa-arrow-right', label: 'يمين' },
+                { type: 'move_left', bg: 'bg-blue-500', icon: 'fa-arrow-left', label: 'يسار' },
+                { type: 'move_up', bg: 'bg-blue-500', icon: 'fa-arrow-up', label: 'أعلى' },
+                { type: 'move_down', bg: 'bg-blue-500', icon: 'fa-arrow-down', label: 'أسفل' },
+                { type: 'jump', bg: 'bg-blue-600', icon: 'fa-person-running', label: 'قفز' },
+                { type: 'turn', bg: 'bg-blue-400', icon: 'fa-rotate-right', label: 'دوران' }
+            ],
+            looks: [
+                { type: 'grow', bg: 'bg-purple-500', icon: 'fa-up-right-and-down-left-from-center', label: 'تكبير' },
+                { type: 'shrink', bg: 'bg-purple-500', icon: 'fa-down-left-and-up-right-to-center', label: 'تصغير' },
+                { type: 'dance', bg: 'bg-purple-600', icon: 'fa-masks-theater', label: 'رقص' },
+                { type: 'color', bg: 'bg-purple-400', icon: 'fa-palette', label: 'لون' }
+            ],
+            sound: [
+                { type: 'sound_cat', bg: 'bg-green-500', icon: 'fa-cat', label: 'ميواء' },
+                { type: 'sound_dog', bg: 'bg-green-500', icon: 'fa-dog', label: 'نباح' },
+                { type: 'sound_boing', bg: 'bg-green-600', icon: 'fa-icons', label: 'قفزة' }
+            ],
+            control: [
+                { type: 'repeat', bg: 'bg-orange-500', icon: 'fa-repeat', label: 'تكرار' },
+                { type: 'wait', bg: 'bg-orange-400', icon: 'fa-hourglass-start', label: 'انتظار' }
+            ]
+        };
+
+        /* ==========================================================================
+           3. INIT & SCENE MANAGEMENT
+           ========================================================================== */
+
+        window.onload = function() {
+            // Seed Scene 1 with default character
+            addCharacterFromLib('🐱', 'قطة الفرح');
+            renderCategoryBlocks('trigger');
+            initPaintCanvas();
+            initDragAndDrop();
+        };
+
+        function switchScene(num) {
+            currentScene = num;
+            document.getElementById('current-scene-num').innerText = num;
+            
+            // Highlight Scene Button
+            [1, 2, 3].forEach(n => {
+                const btn = document.getElementById(`scene-btn-${n}`);
+                if (n === num) {
+                    btn.className = "w-10 h-10 rounded-lg bg-white font-bold text-yellow-700 border-2 border-yellow-500 shadow";
+                } else {
+                    btn.className = "w-10 h-10 rounded-lg bg-yellow-200 font-bold text-yellow-700 hover:bg-white";
+                }
+            });
+
+            // Update Stage Background
+            const stage = document.getElementById('stage');
+            stage.className = `flex-1 relative overflow-hidden transition-all duration-500 shadow-inner ${scenesData[num].background}`;
+
+            renderStageCharacters();
+            renderCharactersSidebar();
+            AudioFX.playPop();
+        }
+
+        function changeBackground(bgClass) {
+            scenesData[currentScene].background = bgClass;
+            document.getElementById('stage').className = `flex-1 relative overflow-hidden transition-all duration-500 shadow-inner ${bgClass}`;
+            closeModal('modal-backgrounds');
+            AudioFX.playPop();
+        }
+
+        /* ==========================================================================
+           4. CHARACTER MANAGEMENT
+           ========================================================================== */
+
+        function addCharacterFromLib(icon, name) {
+            const newChar = {
+                id: 'char_' + Date.now(),
+                name: name,
+                icon: icon,
+                x: 100 + Math.random() * 200,
+                y: 100 + Math.random() * 150,
+                scale: 1,
+                rotation: 0,
+                blocks: [
+                    { type: 'start_flag', bg: 'bg-yellow-400', icon: 'fa-flag' },
+                    { type: 'move_right', bg: 'bg-blue-500', icon: 'fa-arrow-right' }
+                ]
+            };
+            scenesData[currentScene].characters.push(newChar);
+            activeCharacterId = newChar.id;
+            renderStageCharacters();
+            renderCharactersSidebar();
+            renderTimeline();
+            closeModal('modal-characters');
+            AudioFX.playPop();
+        }
+
+        function selectCharacter(id) {
+            activeCharacterId = id;
+            renderCharactersSidebar();
+            renderTimeline();
+            AudioFX.playPop();
+        }
+
+        function renderCharactersSidebar() {
+            const container = document.getElementById('active-characters-list');
+            container.innerHTML = '';
+            
+            scenesData[currentScene].characters.forEach(char => {
+                const isSelected = char.id === activeCharacterId;
+                const div = document.createElement('div');
+                div.className = `w-16 h-16 rounded-2xl flex items-center justify-center text-3xl cursor-pointer transition-all ${
+                    isSelected ? 'bg-yellow-400 border-4 border-white shadow-lg scale-105' : 'bg-white border-2 border-amber-300 hover:bg-yellow-100'
+                }`;
+                div.onclick = () => selectCharacter(char.id);
+                
+                if (char.customImg) {
+                    div.innerHTML = `<img src="${char.customImg}" class="w-12 h-12 object-contain" />`;
+                } else {
+                    div.innerText = char.icon;
+                }
+                container.appendChild(div);
+            });
+        }
+
+        function renderStageCharacters() {
+            const stage = document.getElementById('stage-objects');
+            stage.innerHTML = '';
+
+            scenesData[currentScene].characters.forEach(char => {
+                const el = document.createElement('div');
+                el.id = `stage_elem_${char.id}`;
+                el.style.left = `${char.x}px`;
+                el.style.top = `${char.y}px`;
+                el.style.transform = `scale(${char.scale}) rotate(${char.rotation}deg)`;
+                el.className = `absolute cursor-grab active:cursor-grabbing text-6xl transition-transform duration-200 select-none ${
+                    char.id === activeCharacterId ? 'drop-shadow-[0_0_10px_rgba(250,204,21,0.8)]' : ''
+                }`;
+
+                if (char.customImg) {
+                    el.innerHTML = `<img src="${char.customImg}" class="w-24 h-24 object-contain pointer-events-none" />`;
+                } else {
+                    el.innerText = char.icon;
+                }
+
+                // Stage Dragging Logic
+                let isDragging = false;
+                let startX, startY;
+
+                const onPointerDown = (e) => {
+                    selectCharacter(char.id);
+                    isDragging = true;
+                    startX = e.clientX - char.x;
+                    startY = e.clientY - char.y;
+                    el.setPointerCapture(e.pointerId);
+                };
+
+                const onPointerMove = (e) => {
+                    if (!isDragging) return;
+                    char.x = e.clientX - startX;
+                    char.y = e.clientY - startY;
+                    el.style.left = `${char.x}px`;
+                    el.style.top = `${char.y}px`;
+                };
+
+                const onPointerUp = (e) => {
+                    isDragging = false;
+                };
+
+                el.onpointerdown = onPointerDown;
+                el.onpointermove = onPointerMove;
+                el.onpointerup = onPointerUp;
+
+                stage.appendChild(el);
+            });
+        }
+
+        /* ==========================================================================
+           5. BLOCK-BASED CODING PALETTE & TIMELINE
+           ========================================================================== */
+
+        function selectCategory(cat) {
+            activeCategoryId = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.add('opacity-70'));
+            document.getElementById(`cat-${cat}`).classList.remove('opacity-70');
+            renderCategoryBlocks(cat);
+            AudioFX.playPop();
+        }
+
+        function renderCategoryBlocks(cat) {
+            const palette = document.getElementById('blocks-palette');
+            palette.innerHTML = '';
+
+            blockDefinitions[cat].forEach(block => {
+                const el = document.createElement('div');
+                el.className = `code-block ${block.bg} text-white w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-xl cursor-grab bounce-hover shadow-md flex-shrink-0`;
+                el.innerHTML = `<i class="fa-solid ${block.icon}"></i><span class="text-[10px] font-bold mt-1">${block.label}</span>`;
+                
+                // Click to add to timeline directly
+                el.onclick = () => addBlockToTimeline(block);
+                palette.appendChild(el);
+            });
+        }
+
+        function addBlockToTimeline(block) {
+            const activeChar = scenesData[currentScene].characters.find(c => c.id === activeCharacterId);
+            if (!activeChar) return;
+
+            activeChar.blocks.push({ ...block });
+            renderTimeline();
+            AudioFX.playBoing();
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('program-timeline');
+            container.innerHTML = '';
+
+            const activeChar = scenesData[currentScene].characters.find(c => c.id === activeCharacterId);
+            if (!activeChar || activeChar.blocks.length === 0) {
+                container.innerHTML = '<div class="text-amber-400 font-bold text-sm px-4 pointer-events-none">انقر المكعبات لإضافتها هنا!</div>';
+                return;
+            }
+
+            activeChar.blocks.forEach((blk, idx) => {
+                const el = document.createElement('div');
+                el.className = `code-block ${blk.bg} text-white w-14 h-14 rounded-xl flex items-center justify-center text-2xl cursor-pointer relative block-connector-right shadow`;
+                el.innerHTML = `<i class="fa-solid ${blk.icon}"></i>`;
+                
+                // Remove block on click
+                el.onclick = () => {
+                    activeChar.blocks.splice(idx, 1);
+                    renderTimeline();
+                    AudioFX.playPop();
+                };
+                container.appendChild(el);
+            });
+        }
+
+        /* ==========================================================================
+           6. PROGRAM EXECUTION ENGINE
+           ========================================================================== */
+
+        async function runProgram() {
+            if (isRunning) return;
+            isRunning = true;
+            document.getElementById('btn-play').classList.add('glow-active');
+
+            const characters = scenesData[currentScene].characters;
+
+            for (const char of characters) {
+                executeCharacterBlocks(char);
+            }
+        }
+
+        async function executeCharacterBlocks(char) {
+            const elem = document.getElementById(`stage_elem_${char.id}`);
+            if (!elem) return;
+
+            for (const blk of char.blocks) {
+                if (!isRunning) break;
+
+                switch (blk.type) {
+                    case 'move_right':
+                        char.x += 40;
+                        elem.style.left = `${char.x}px`;
+                        break;
+                    case 'move_left':
+                        char.x -= 40;
+                        elem.style.left = `${char.x}px`;
+                        break;
+                    case 'move_up':
+                        char.y -= 40;
+                        elem.style.top = `${char.y}px`;
+                        break;
+                    case 'move_down':
+                        char.y += 40;
+                        elem.style.top = `${char.y}px`;
+                        break;
+                    case 'jump':
+                        char.y -= 50;
+                        elem.style.top = `${char.y}px`;
+                        AudioFX.playBoing();
+                        await sleep(200);
+                        char.y += 50;
+                        elem.style.top = `${char.y}px`;
+                        break;
+                    case 'turn':
+                        char.rotation += 45;
+                        elem.style.transform = `scale(${char.scale}) rotate(${char.rotation}deg)`;
+                        break;
+                    case 'grow':
+                        char.scale += 0.2;
+                        elem.style.transform = `scale(${char.scale}) rotate(${char.rotation}deg)`;
+                        break;
+                    case 'shrink':
+                        char.scale = Math.max(0.4, char.scale - 0.2);
+                        elem.style.transform = `scale(${char.scale}) rotate(${char.rotation}deg)`;
+                        break;
+                    case 'dance':
+                        elem.classList.add('anim-dance');
+                        await sleep(600);
+                        elem.classList.remove('anim-dance');
+                        break;
+                    case 'sound_cat':
+                        AudioFX.playAnimalSound('cat');
+                        break;
+                    case 'sound_dog':
+                        AudioFX.playAnimalSound('dog');
+                        break;
+                    case 'sound_boing':
+                        AudioFX.playBoing();
+                        break;
+                    case 'wait':
+                        await sleep(500);
+                        break;
+                }
+                await sleep(300);
+            }
+
+            triggerFireworks();
+        }
+
+        function stopProgram() {
+            isRunning = false;
+            document.getElementById('btn-play').classList.remove('glow-active');
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        /* ==========================================================================
+           7. VECTOR/PAINT CANVAS EDITOR
+           ========================================================================== */
+
+        let paintCanvas, paintCtx;
+        let isDrawing = false;
+        let paintColor = '#ef4444';
+        let currentTool = 'pen';
+
+        function openPaintEditor() {
+            closeModal('modal-characters');
+            document.getElementById('modal-paint').classList.remove('hidden');
+            setTimeout(resizePaintCanvas, 100);
+        }
+
+        function initPaintCanvas() {
+            paintCanvas = document.getElementById('paint-canvas');
+            paintCtx = paintCanvas.getContext('2d');
+
+            const startDraw = (e) => {
+                isDrawing = true;
+                paintCtx.beginPath();
+                const pos = getCanvasPos(e);
+                paintCtx.moveTo(pos.x, pos.y);
+            };
+
+            const draw = (e) => {
+                if (!isDrawing) return;
+                const pos = getCanvasPos(e);
+
+                if (currentTool === 'pen') {
+                    paintCtx.strokeStyle = paintColor;
+                    paintCtx.lineWidth = 8;
+                    paintCtx.lineCap = 'round';
+                    paintCtx.lineTo(pos.x, pos.y);
+                    paintCtx.stroke();
+                } else if (currentTool === 'eraser') {
+                    paintCtx.clearRect(pos.x - 15, pos.y - 15, 30, 30);
+                }
+            };
+
+            const stopDraw = () => { isDrawing = false; };
+
+            paintCanvas.addEventListener('mousedown', startDraw);
+            paintCanvas.addEventListener('mousemove', draw);
+            paintCanvas.addEventListener('mouseup', stopDraw);
+
+            paintCanvas.addEventListener('touchstart', (e) => startDraw(e.touches[0]));
+            paintCanvas.addEventListener('touchmove', (e) => draw(e.touches[0]));
+            paintCanvas.addEventListener('touchend', stopDraw);
+        }
+
+        function getCanvasPos(e) {
+            const rect = paintCanvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function resizePaintCanvas() {
+            paintCanvas.width = 400;
+            paintCanvas.height = 350;
+            clearPaintCanvas();
+        }
+
+        function clearPaintCanvas() {
+            paintCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+        }
+
+        function setPaintColor(color) {
+            paintColor = color;
+        }
+
+        function setPaintTool(tool) {
+            currentTool = tool;
+        }
+
+        function saveCustomCharacter() {
+            const dataUrl = paintCanvas.toDataURL();
+            const newChar = {
+                id: 'custom_' + Date.now(),
+                name: 'شخصيتي',
+                customImg: dataUrl,
+                x: 150,
+                y: 150,
+                scale: 1,
+                rotation: 0,
+                blocks: [
+                    { type: 'start_flag', bg: 'bg-yellow-400', icon: 'fa-flag' },
+                    { type: 'dance', bg: 'bg-purple-600', icon: 'fa-masks-theater' }
+                ]
+            };
+            scenesData[currentScene].characters.push(newChar);
+            activeCharacterId = newChar.id;
+            renderStageCharacters();
+            renderCharactersSidebar();
+            renderTimeline();
+            closeModal('modal-paint');
+            AudioFX.playBoing();
+        }
+
+        /* ==========================================================================
+           8. SPECIAL EFFECTS & UTILS
+           ========================================================================== */
+
+        function togglePhysics() {
+            physicsEnabled = !physicsEnabled;
+            document.getElementById('physics-status').innerText = physicsEnabled ? 'تفعيل' : 'إيقاف';
+            AudioFX.playPop();
+        }
+
+        function toggleAudio() {
+            isAudioMuted = !isAudioMuted;
+            const btn = document.getElementById('btn-sound');
+            btn.innerHTML = isAudioMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+        }
+
+        function triggerFireworks() {
+            const canvas = document.getElementById('particle-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            let particles = [];
+            for (let i = 0; i < 50; i++) {
+                particles.push({
+                    x: canvas.width / 2,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10,
+                    color: `hsl(${Math.random() * 360}, 100%, 50%)`,
+                    radius: Math.random() * 6 + 2,
+                    alpha: 1
+                });
+            }
+
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach((p, index) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= 0.02;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = Math.max(0, p.alpha);
+                    ctx.fill();
+                });
+                particles = particles.filter(p => p.alpha > 0);
+                if (particles.length > 0) requestAnimationFrame(animate);
+            }
+            animate();
+        }
+
+        /* Modals Control */
+        function openBackgroundModal() { document.getElementById('modal-backgrounds').classList.remove('hidden'); }
+        function openCharacterModal() { document.getElementById('modal-characters').classList.remove('hidden'); }
+        function openPresetsModal() { document.getElementById('modal-presets').classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        /* Presets */
+        function loadPreset(type) {
+            closeModal('modal-presets');
+            if (type === 'dance') {
+                switchScene(1);
+                scenesData[1].characters = [];
+                addCharacterFromLib('🐱', 'القط الراقص');
+                addCharacterFromLib('🤖', 'الروبوت');
+            } else if (type === 'space') {
+                switchScene(2);
+                scenesData[2].characters = [];
+                addCharacterFromLib('🚀', 'الصاروخ');
+            }
+        }
+    </script>
+</body>
+</html>
